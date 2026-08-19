@@ -1,0 +1,122 @@
+{
+   "meta" : {
+      "disclaimer" : "Do not rely on openFDA to make decisions regarding medical care. While we make every effort to ensure that data is accurate, you should assume all results are unvalidated. We may limit or otherwise restrict your access to the API in line with our Terms of Service.",
+      "last_updated" : "2026-08-19",
+      "license" : "https://open.fda.gov/license/",
+      "results" : {
+         "limit" : 5,
+         "skip" : 0,
+         "total" : 1
+      },
+      "terms" : "https://open.fda.gov/terms/"
+   },
+   "results" : [
+      {
+         "active_ingredient" : [
+            "Drug Facts Active ingredient (in each caplet) Acetaminophen 650 mg"
+         ],
+         "ask_doctor" : [
+            "Ask a doctor before use if you have liver disease"
+         ],
+         "ask_doctor_or_pharmacist" : [
+            "Ask a doctor or pharmacist before use if you are taking the blood thinning drug warfarin"
+         ],
+         "do_not_use" : [
+            "Do not use With any other containing acetaminophen (prescription or nonprescription). If you are not ure whether a drug contains acetaminophen, ask a doctor or pharmacist. If you are allergic to acetaminophen or ay of the inactive ingredients in this product"
+         ],
+         "dosage_and_administration" : [
+            "Directions Do not take more than directed (see overdose warning) Adults Take 2 caplets every 8 hours with water swallow whole; do not crush, chew, split or dissolve do not take more than 6 caplets in 24 hours do not use for more than 10 days unless directed by a doctor Under 18 years of age Ask a doctor"
+         ],
+         "dosage_and_administration_table" : [
+            "<table border=\"1\" width=\"100%\"><tbody><tr><td>Adults</td><td>Take 2 caplets every 8 hours with water   swallow whole; do not crush, chew, split or dissolve   do not take more than 6 caplets in 24 hours   do not use for more than 10 days unless directed by a doctor </td></tr><tr><td>Under 18 years of age</td><td>Ask a doctor</td></tr></tbody></table>"
+         ],
+         "effective_time" : "20260129",
+         "id" : "498c7d7e-d953-c122-e063-6394a90ae72f",
+         "inactive_ingredient" : [
+            "Inactive ingredients caranuba wax, hydroxyethyl cellulose, hypromellose, magnesium stearate, microcrystalline cellulose, modified starch, povidone, powdered cellulose, pregelatinizated starch, sodium starch glycolate, titnium dioxide, triacetin."
+         ],
+         "indications_and_usage" : [
+            "Uses Temporarily relieves minor aches and pains due to: Minor pain of arthitis Muscular aches Backache Premenstrual and menstrual cramps The common cold Headache Toothache Temporarily reduces fever"
+         ],
+         "keep_out_of_reach_of_children" : [
+            "Keep out reach of children. Keep out reach of children."
+         ],
+         "openfda" : {
+            "application_number" : [
+               "M013"
+            ],
+            "brand_name" : [
+               "Crocin MAX"
+            ],
+            "generic_name" : [
+               "ACETAMINOPHEN"
+            ],
+            "is_original_packager" : [
+               true
+            ],
+            "manufacturer_name" : [
+               "OPMX LLC"
+            ],
+            "package_ndc" : [
+               "69729-801-24"
+            ],
+            "product_ndc" : [
+               "69729-801"
+            ],
+            "product_type" : [
+               "HUMAN OTC DRUG"
+            ],
+            "route" : [
+               "ORAL"
+            ],
+            "spl_id" : [
+               "498c7d7e-d953-c122-e063-6394a90ae72f"
+            ],
+            "spl_set_id" : [
+               "498c7d7e-d952-c122-e063-6394a90ae72f"
+            ],
+            "substance_name" : [
+               "ACETAMINOPHEN"
+            ],
+            "unii" : [
+               "362O9ITL9D"
+            ],
+            "upc" : [
+               "0810053181652"
+            ]
+         },
+         "other_safety_information" : [
+            "Other information Store between 20-25° C (68-77° F) Do not use if carton is opened. Do not use if foil inner seal is broken or missing"
+         ],
+         "overdosage" : [
+            "Overdose warning: In case of overdose, get medical help or contact a Poison Control Center right away. (1-800-222-1222) Quick medical attention is critical for adults as well as for children even if you do not notice any signs or symptoms."
+         ],
+         "package_label_principal_display_panel" : [
+            "Package Label Crocin MAX Acetaminophen 650 mg Pain Relief Alivia el Dolor / Pain Relief Reduce la fiebre Fever Reducer Dolor de cabeza Headache Dolores Musculares Muscle Aches Dolor leve por Artitis Minor Pain of Arthritis 24 Caplets PDP1 esp"
+         ],
+         "pregnancy_or_breast_feeding" : [
+            "If pregnant or breast-feeding, ask a health professional before use."
+         ],
+         "purpose" : [
+            "Purpose Pain reliever / Fever Reducer"
+         ],
+         "questions" : [
+            "Questions or comments? Call (619)600-5632 (Mon - Fri 9am - 5pm PST)"
+         ],
+         "set_id" : "498c7d7e-d952-c122-e063-6394a90ae72f",
+         "spl_product_data_elements" : [
+            "Crocin MAX Acetaminophen ACETAMINOPHEN ACETAMINOPHEN SODIUM STARCH GLYCOLATE TYPE A CORN TITANIUM DIOXIDE MAGNESIUM STEARATE STARCH, CORN TRIACETIN HYDROXYMETHYL CELLULOSE POVIDONE K30 CARNAUBA WAX HYPROMELLOSE, UNSPECIFIED MICROCRYSTALLINE CELLULOSE POWDERED CELLULOSE Oblong shape OPMX"
+         ],
+         "spl_unclassified_section" : [
+            "Made for: RRX San Diego, CA 92154 Exclusively distributed by: OPMX Chula Vista, CA 91910 Phone: 619-600-5632"
+         ],
+         "stop_use" : [
+            "Stop use and ask a doctor if Pain gets worse or lasts more than 10 days Fever gets worse or lasts more than 3 days New symptoms occur Redness or swelling is present These could be signs of a serious condition."
+         ],
+         "version" : "1",
+         "warnings" : [
+            "Warnings Liver warning: This product contains acetaminophen. Severe liver damage may occur if you take More than 6 caplets in 24 hours, wich is the maximum daily amount With other drugs containing acetaminophen 3 or more alcoholic drinks every day while using this product. Allergy alert: Acetaminophen may cause severe skin reactions. Symptoms may include: Skin redding Blisters Rash If skin reaction occurs, stop use and seek medical help right away. Do not use With any other containing acetaminophen (prescription or nonprescription). If you are not ure whether a drug contains acetaminophen, ask a doctor or pharmacist. If you are allergic to acetaminophen or ay of the inactive ingredients in this product Ask a doctor before use if you have liver disease Ask a doctor or pharmacist before use if you are taking the blood thinning drug warfarin Stop use and ask a doctor if Pain gets worse or lasts more than 10 days Fever gets worse or lasts more than 3 days New symptoms occur Redness or swelling is present These could be signs of a serious condition. If pregnant or breast-feeding, ask a health professional before use. Keep out reach of children. Keep out reach of children. Overdose warning: In case of overdose, get medical help or contact a Poison Control Center right away. (1-800-222-1222) Quick medical attention is critical for adults as well as for children even if you do not notice any signs or symptoms."
+         ]
+      }
+   ]
+}
