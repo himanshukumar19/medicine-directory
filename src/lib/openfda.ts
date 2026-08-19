@@ -1,9 +1,24 @@
+import {
+  parseProductLabel,
+  selectPreferredLabelRevisions,
+  type LabelRevisionStatus,
+  type ProductLabel,
+} from "./product-label";
+
 const OPENFDA_LABEL_URL = "https://api.fda.gov/drug/label.json";
 const DEFAULT_LIMIT = 10;
+const DETAIL_LIMIT = 100;
 
 export type Product = {
   setId: string;
   brandAliases: string[];
+  labelRevisions?: ProductLabel[];
+  labelRevisionStatus?: LabelRevisionStatus;
+};
+
+export type ProductDetails = Product & {
+  labelRevisions: ProductLabel[];
+  labelRevisionStatus: LabelRevisionStatus;
 };
 
 export type ResultSetProvenance = {
@@ -85,24 +100,47 @@ export async function searchProducts(
 export async function getProductBySetId(
   setId: string,
   options: RequestOptions = {},
-): Promise<Product | undefined> {
+): Promise<ProductDetails | undefined> {
   const normalizedSetId = setId.trim();
 
   if (!normalizedSetId) {
     return undefined;
   }
 
-  const result = await fetchResultWindow(
+  const result = await fetchAllProductDetailPages(
     `set_id:"${escapeSearchTerm(normalizedSetId)}"`,
-    { ...options, limit: 1 },
+    { ...options, includeLabel: true, limit: DETAIL_LIMIT },
   );
 
-  return result.products.find((product) => product.setId === normalizedSetId);
+  const product = result.products.find(
+    (candidate) => candidate.setId === normalizedSetId,
+  );
+
+  if (!product?.labelRevisions) {
+    return undefined;
+  }
+
+  const selection = selectPreferredLabelRevisions(
+    uniqueLabelRevisions(product.labelRevisions),
+  );
+  product.labelRevisions = selection.revisions;
+  product.labelRevisionStatus = selection.status;
+
+  return product as ProductDetails;
 }
+
+type FetchResultOptions = RequestOptions & {
+  includeLabel?: boolean;
+};
 
 async function fetchResultWindow(
   search: string,
-  { fetcher = globalThis.fetch, limit = DEFAULT_LIMIT, skip = 0 }: RequestOptions,
+  {
+    fetcher = globalThis.fetch,
+    includeLabel = false,
+    limit = DEFAULT_LIMIT,
+    skip = 0,
+  }: FetchResultOptions,
 ): Promise<ResultWindow> {
   const requestUrl = new URL(OPENFDA_LABEL_URL);
   requestUrl.searchParams.set("search", search);
@@ -138,10 +176,41 @@ async function fetchResultWindow(
     );
   }
 
-  return parseResultWindow(payload);
+  return parseResultWindow(payload, includeLabel);
 }
 
-function parseResultWindow(payload: unknown): ResultWindow {
+async function fetchAllProductDetailPages(
+  search: string,
+  options: FetchResultOptions,
+): Promise<ResultWindow> {
+  const firstPage = await fetchResultWindow(search, options);
+
+  if (firstPage.limit <= 0 || firstPage.skip + firstPage.limit >= firstPage.total) {
+    return firstPage;
+  }
+
+  const products = [...firstPage.products];
+  let nextSkip = firstPage.skip + firstPage.limit;
+
+  while (nextSkip < firstPage.total) {
+    const page = await fetchResultWindow(search, {
+      ...options,
+      skip: nextSkip,
+    });
+
+    mergeProducts(products, page.products);
+
+    if (page.limit <= 0) {
+      break;
+    }
+
+    nextSkip += page.limit;
+  }
+
+  return { ...firstPage, products };
+}
+
+function parseResultWindow(payload: unknown, includeLabel: boolean): ResultWindow {
   if (!isRecord(payload)) {
     throw malformedResponse();
   }
@@ -161,7 +230,7 @@ function parseResultWindow(payload: unknown): ResultWindow {
     throw malformedResponse();
   }
 
-  const products = deduplicateProducts(response.results);
+  const products = deduplicateProducts(response.results, includeLabel);
 
   return {
     products,
@@ -177,7 +246,7 @@ function parseResultWindow(payload: unknown): ResultWindow {
   };
 }
 
-function deduplicateProducts(records: unknown[]): Product[] {
+function deduplicateProducts(records: unknown[], includeLabel: boolean): Product[] {
   const products = new Map<string, Product>();
 
   for (const record of records) {
@@ -201,16 +270,63 @@ function deduplicateProducts(records: unknown[]): Product[] {
           existingProduct.brandAliases.push(brandAlias);
         }
       }
+      if (includeLabel) {
+        existingProduct.labelRevisions?.push(parseProductLabel(productRecord));
+      }
       continue;
     }
 
-    products.set(setId, {
+    const product: Product = {
       setId,
       brandAliases,
-    });
+    };
+
+    if (includeLabel) {
+      product.labelRevisions = [parseProductLabel(productRecord)];
+    }
+
+    products.set(setId, product);
   }
 
   return [...products.values()];
+}
+
+function mergeProducts(target: Product[], source: Product[]): void {
+  for (const sourceProduct of source) {
+    const targetProduct = target.find(
+      (product) => product.setId === sourceProduct.setId,
+    );
+
+    if (!targetProduct) {
+      target.push(sourceProduct);
+      continue;
+    }
+
+    for (const brandAlias of sourceProduct.brandAliases) {
+      if (!targetProduct.brandAliases.includes(brandAlias)) {
+        targetProduct.brandAliases.push(brandAlias);
+      }
+    }
+
+    if (sourceProduct.labelRevisions) {
+      targetProduct.labelRevisions?.push(...sourceProduct.labelRevisions);
+    }
+  }
+}
+
+function uniqueLabelRevisions(revisions: ProductLabel[]): ProductLabel[] {
+  const seen = new Set<string>();
+
+  return revisions.filter((revision) => {
+    const key = JSON.stringify(revision);
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
 }
 
 function escapeSearchTerm(value: string): string {
