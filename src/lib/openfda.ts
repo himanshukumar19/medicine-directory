@@ -107,12 +107,12 @@ export async function getProductBySetId(
     return undefined;
   }
 
-  const result = await fetchAllProductDetailPages(
+  const products = await fetchAllProductDetailPages(
     `set_id:"${escapeSearchTerm(normalizedSetId)}"`,
     { ...options, includeLabel: true, limit: DETAIL_LIMIT },
   );
 
-  const product = result.products.find(
+  const product = products.find(
     (candidate) => candidate.setId === normalizedSetId,
   );
 
@@ -182,15 +182,16 @@ async function fetchResultWindow(
 async function fetchAllProductDetailPages(
   search: string,
   options: FetchResultOptions,
-): Promise<ResultWindow> {
+): Promise<Product[]> {
   const firstPage = await fetchResultWindow(search, options);
 
   if (firstPage.limit <= 0 || firstPage.skip + firstPage.limit >= firstPage.total) {
-    return firstPage;
+    return firstPage.products;
   }
 
   const products = [...firstPage.products];
   let nextSkip = firstPage.skip + firstPage.limit;
+  const visitedSkips = new Set([firstPage.skip]);
 
   while (nextSkip < firstPage.total) {
     const page = await fetchResultWindow(search, {
@@ -198,16 +199,20 @@ async function fetchAllProductDetailPages(
       skip: nextSkip,
     });
 
-    mergeProducts(products, page.products);
-
-    if (page.limit <= 0) {
+    if (
+      page.limit <= 0 ||
+      page.skip !== nextSkip ||
+      visitedSkips.has(page.skip)
+    ) {
       break;
     }
 
+    mergeProducts(products, page.products);
+    visitedSkips.add(page.skip);
     nextSkip += page.limit;
   }
 
-  return { ...firstPage, products };
+  return products;
 }
 
 function parseResultWindow(payload: unknown, includeLabel: boolean): ResultWindow {

@@ -294,5 +294,27 @@ describe("search and open a Product", () => {
 
     expect(malformedDateMarkup).toContain("not-a-date");
     expect(malformedDateMarkup).not.toContain("Invalid Date");
+
+    const ambiguousMarkup = await renderProductFixture({
+      ...crocinFixture,
+      results: [
+        {
+          ...originalRecord,
+          active_ingredient: ["Ambiguous revision one"],
+          effective_time: "not-a-date",
+          id: "ambiguous-one",
+        },
+        {
+          ...originalRecord,
+          active_ingredient: ["Ambiguous revision two"],
+          effective_time: "also-not-a-date",
+          id: "ambiguous-two",
+        },
+      ],
+    });
+
+    expect(ambiguousMarkup).toContain("Ambiguous revision one");
+    expect(ambiguousMarkup).toContain("Ambiguous revision two");
+    expect(ambiguousMarkup).toContain("Ambiguous Label Revision 2");
   });
 });
