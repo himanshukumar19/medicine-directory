@@ -1,10 +1,16 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { OpenFdaError, getProductBySetId } from "@/lib/openfda";
+import {
+  OpenFdaError,
+  getProductBySetId,
+  type ResultSetProvenance,
+} from "@/lib/openfda";
 import {
   deriveDosageTable,
   effectiveTimeTimestamp,
+  findMaterialSourceConflicts,
   usefulFragments,
   type LabelRevisionStatus,
   type MetadataField,
@@ -20,6 +26,35 @@ type ProductBadge = {
   label: "Route" | "Form";
   value: string;
 };
+
+const MARKET_PROVENANCE_COPY =
+  "This US FDA source does not establish Indian availability, Indian approval, formulation equivalence, or substitution guidance.";
+
+export async function generateMetadata({
+  params,
+}: ProductPageProps): Promise<Metadata> {
+  const { setId } = await params;
+
+  try {
+    const product = await getProductBySetId(setId);
+
+    if (product) {
+      return {
+        title: `${displayBrandAlias(product)} Product Label | Medicine Directory`,
+        description: productDescription(product),
+      };
+    }
+  } catch {
+    // The page still renders its recoverable error state when the source fails.
+  }
+
+  return {
+    title: "Product Record | Medicine Directory",
+    description:
+      "A Product record sourced from US FDA labeling through openFDA.",
+    robots: { index: false, follow: true },
+  };
+}
 
 export default async function ProductPage(
   props: ProductPageProps,
@@ -69,7 +104,7 @@ export default async function ProductPage(
     notFound();
   }
 
-  const brandAlias = product.brandAliases[0] ?? "Brand alias unavailable";
+  const brandAlias = displayBrandAlias(product);
   const productBadges =
     product.labelRevisions.length === 1
       ? getProductBadges(product.labelRevisions[0])
@@ -99,9 +134,7 @@ export default async function ProductPage(
         </div>
         <p className="detail-intro">
           This page is anchored to the source Product Reference below. The
-          readable Brand Alias is a display label, not the identity. The source
-          is US FDA labeling and does not establish Indian availability,
-          approval, equivalence, or substitution guidance.
+          readable Brand Alias is a display label, not the identity.
         </p>
 
         <dl className="identity-list">
@@ -117,12 +150,91 @@ export default async function ProductPage(
           </div>
         </dl>
 
+        <SourceTrustBoundary provenance={product.provenance} />
+
         <LabelContent
           labels={product.labelRevisions}
           revisionStatus={product.labelRevisionStatus}
         />
       </article>
     </main>
+  );
+}
+
+function displayBrandAlias(product: { brandAliases: string[] }): string {
+  return product.brandAliases[0] ?? "Brand alias unavailable";
+}
+
+function productDescription(
+  product: NonNullable<Awaited<ReturnType<typeof getProductBySetId>>>,
+): string {
+  const sourceContext =
+    product.labelRevisionStatus === "preferred"
+      ? getReadableLabelContext(product.labelRevisions[0])
+      : undefined;
+  const context = sourceContext
+    ? ` ${sourceContext}.`
+    : "";
+
+  return `Read the US FDA label source for ${displayBrandAlias(product)}.${context} This page presents unvalidated source data. ${MARKET_PROVENANCE_COPY}`;
+}
+
+function getReadableLabelContext(label: ProductLabel | undefined): string | undefined {
+  if (!label) {
+    return undefined;
+  }
+
+  const activeIngredient = firstUsefulFragment(label.activeIngredient);
+
+  if (activeIngredient) {
+    return `Label-provided Active Ingredient Text: ${readableMetadataText(activeIngredient)}`;
+  }
+
+  const purpose = firstUsefulFragment(label.purpose);
+
+  return purpose
+    ? `Label-provided Purpose: ${readableMetadataText(purpose)}`
+    : undefined;
+}
+
+function firstUsefulFragment(field: SourceField): string | undefined {
+  return usefulFragments(field)[0];
+}
+
+function readableMetadataText(value: string): string {
+  const normalized = value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+
+  if (normalized.length <= 120) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, 117).replace(/\s+\S*$/, "")}...`;
+}
+
+function SourceTrustBoundary({
+  provenance,
+}: {
+  provenance: ResultSetProvenance;
+}) {
+  return (
+    <section className="product-trust-boundary" aria-labelledby="trust-heading">
+      <p className="eyebrow">Source and Market Context</p>
+      <h2 id="trust-heading">OpenFDA Market Provenance</h2>
+      <p className="label-group-intro">
+        This Product is sourced from US FDA labeling through openFDA. {MARKET_PROVENANCE_COPY}
+      </p>
+
+      {provenance.lastUpdated ? (
+        <dl className="identity-list trust-date-list">
+          <div>
+            <dt>Dataset Updated Date</dt>
+            <dd>
+              <code>{provenance.lastUpdated}</code>
+            </dd>
+          </div>
+        </dl>
+      ) : null}
+    </section>
   );
 }
 
@@ -244,10 +356,37 @@ function LabelContent({
             </>
           ) : null}
           <LabelRevisionProvenance label={label} />
+          <MaterialSourceConflicts label={label} revisionIndex={index} />
           <LabelSections label={label} revisionIndex={index} />
         </div>
       ))}
     </div>
+  );
+}
+
+function MaterialSourceConflicts({
+  label,
+  revisionIndex,
+}: {
+  label: ProductLabel;
+  revisionIndex: number;
+}) {
+  const conflicts = findMaterialSourceConflicts(label);
+  const headingId = `source-conflict-heading-${revisionIndex}`;
+
+  if (conflicts.length === 0) {
+    return null;
+  }
+
+  return (
+    <aside className="source-conflict-caveat" aria-labelledby={headingId}>
+      <p className="eyebrow" id={headingId}>
+        Material Source Conflict
+      </p>
+      {conflicts.map((conflict, index) => (
+        <p key={`source-conflict-${index}`}>{conflict}</p>
+      ))}
+    </aside>
   );
 }
 

@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import Home from "./page";
-import ProductPage from "./products/[setId]/page";
+import ProductPage, { generateMetadata } from "./products/[setId]/page";
 
 const productSetId = "498c7d7e-d952-c122-e063-6394a90ae72f";
 
@@ -69,6 +69,182 @@ describe("search and open a Product", () => {
     );
     expect(detailMarkup).toContain("Crocin MAX");
     expect(detailMarkup).toContain(productSetId);
+  });
+
+  it("emits Product-level SEO metadata from readable source context", async () => {
+    mockProductFixture(crocinFixture);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ setId: productSetId }),
+    });
+
+    expect(metadata.title).toBe("Crocin MAX Product Label | Medicine Directory");
+    expect(metadata.description).toContain("Crocin MAX");
+    expect(metadata.description).toContain("US FDA label source");
+    expect(metadata.description).toContain("Indian availability");
+    expect(metadata.description).toContain("substitution guidance");
+    expect(metadata.description).not.toContain("clinically validated");
+    expect(metadata.description).not.toContain("is equivalent");
+  });
+
+  it("does not choose one co-preferred Label Revision for SEO context", async () => {
+    const originalRecord = crocinFixture.results[0];
+    mockProductFixture({
+      ...crocinFixture,
+      results: [
+        {
+          ...originalRecord,
+          active_ingredient: ["First co-preferred revision context"],
+          effective_time: "20260129",
+          id: "first-co-preferred-label",
+        },
+        {
+          ...originalRecord,
+          active_ingredient: ["Second co-preferred revision context"],
+          effective_time: "20260129",
+          id: "second-co-preferred-label",
+        },
+      ],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ setId: productSetId }),
+    });
+
+    expect(metadata.description).toContain("Read the US FDA label source");
+    expect(metadata.description).not.toContain("First co-preferred revision context");
+    expect(metadata.description).not.toContain("Second co-preferred revision context");
+  });
+
+  it("separates source trust details from Product Safety Fields", async () => {
+    const detailMarkup = await renderProductFixture(crocinFixture);
+    const home = await Home({
+      searchParams: Promise.resolve({ term: "Crocin MAX" }),
+    });
+    const homeMarkup = renderToStaticMarkup(home);
+
+    expect(detailMarkup).toContain("Product Reference");
+    expect(homeMarkup).toContain("OpenFDA source disclaimer");
+    expect(homeMarkup).toContain(crocinFixture.meta.disclaimer);
+    expect(detailMarkup).toContain("OpenFDA Market Provenance");
+    expect(detailMarkup).toContain("US FDA labeling");
+    expect(detailMarkup).toContain("Indian availability");
+    expect(detailMarkup).toContain("formulation equivalence");
+    expect(detailMarkup).toContain("substitution guidance");
+    expect(detailMarkup).toContain("Dataset Updated Date");
+    expect(detailMarkup).toContain("2026-08-19");
+    expect(detailMarkup).toContain("Label Effective Date");
+    expect(detailMarkup).not.toContain("Last Updated");
+    expect(detailMarkup).toMatch(/<h1 id="product-title">Crocin MAX<\/h1>/);
+    expect(detailMarkup).toMatch(
+      /<h2[^>]+id="core-label-heading-0">Core Label Content<\/h2>/,
+    );
+    expect(detailMarkup).toMatch(
+      /<h2[^>]+id="safety-heading-0">[\s\S]*Safety Fields[\s\S]*<\/h2>/,
+    );
+    expect(detailMarkup).toContain('aria-labelledby="core-label-heading-0"');
+    expect(detailMarkup).toContain('aria-labelledby="safety-heading-0"');
+
+    const marketStart = detailMarkup.indexOf("OpenFDA Market Provenance");
+    const safetyStart = detailMarkup.indexOf("Safety Fields");
+    expect(marketStart).toBeGreaterThanOrEqual(0);
+    expect(safetyStart).toBeGreaterThan(marketStart);
+  });
+
+  it("surfaces a material route and dosage Source Conflict without correcting either value", async () => {
+    const originalRecord = crocinFixture.results[0];
+    const conflictMarkup = await renderProductFixture({
+      ...crocinFixture,
+      results: [
+        {
+          ...originalRecord,
+          dosage_and_administration: ["Take 2 tablets by mouth every 6 hours."],
+          openfda: {
+            ...originalRecord.openfda,
+            route: ["TOPICAL"],
+          },
+        },
+      ],
+    });
+
+    expect(conflictMarkup).toContain("Material Source Conflict");
+    expect(conflictMarkup).toContain("route metadata lists Topical");
+    expect(conflictMarkup).toContain("dosage text mentions solid oral dosage instructions");
+    expect(conflictMarkup).toContain("Topical");
+    expect(conflictMarkup).toContain("Take 2 tablets by mouth every 6 hours.");
+
+    const oralOnlyConflictMarkup = await renderProductFixture({
+      ...crocinFixture,
+      results: [
+        {
+          ...originalRecord,
+          dosage_and_administration: ["Take by mouth every 6 hours."],
+          dosage_and_administration_table: [],
+          openfda: {
+            ...originalRecord.openfda,
+            route: ["TOPICAL"],
+          },
+        },
+      ],
+    });
+
+    expect(oralOnlyConflictMarkup).toContain("oral dosage instructions");
+
+    const negatedInstructionMarkup = await renderProductFixture({
+      ...crocinFixture,
+      results: [
+        {
+          ...originalRecord,
+          dosage_and_administration: ["Do not take by mouth. Apply to skin."],
+          dosage_and_administration_table: [],
+          openfda: {
+            ...originalRecord.openfda,
+            route: ["TOPICAL"],
+          },
+        },
+      ],
+    });
+
+    expect(negatedInstructionMarkup).not.toContain("Material Source Conflict");
+
+    const ophthalmicConflictMarkup = await renderProductFixture({
+      ...crocinFixture,
+      results: [
+        {
+          ...originalRecord,
+          dosage_and_administration: ["Take 2 tablets by mouth."],
+          dosage_and_administration_table: [],
+          openfda: {
+            ...originalRecord.openfda,
+            route: ["OPHTHALMIC"],
+          },
+        },
+      ],
+    });
+
+    expect(ophthalmicConflictMarkup).toContain("Material Source Conflict");
+  });
+
+  it("keeps identifier discrepancies out of user-facing clinical warnings", async () => {
+    const originalRecord = crocinFixture.results[0];
+    const detailMarkup = await renderProductFixture({
+      ...crocinFixture,
+      results: [
+        {
+          ...originalRecord,
+          openfda: {
+            ...originalRecord.openfda,
+            spl_set_id: ["diagnostic-only-set-id"],
+          },
+        },
+      ],
+    });
+
+    expect(detailMarkup).toContain("SPL Set Provenance");
+    expect(detailMarkup).toContain("diagnostic-only-set-id");
+    expect(detailMarkup).not.toContain("Material Source Conflict");
+    expect(detailMarkup).not.toContain('class="source-conflict-caveat"');
+    expect(detailMarkup).not.toContain('role="alert"');
   });
 
   it("shows separate Products and makes a partial Result Window explicit", async () => {

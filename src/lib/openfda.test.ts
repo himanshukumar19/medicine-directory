@@ -1,7 +1,7 @@
 import crocinFixture from "../../research/api-sample-crocin.json";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { searchProducts } from "./openfda";
+import { getProductBySetId, searchProducts } from "./openfda";
 
 describe("searchProducts", () => {
   afterEach(() => {
@@ -187,6 +187,32 @@ describe("searchProducts", () => {
 
     await expect(searchProducts("Crocin MAX")).rejects.toMatchObject({
       kind: "malformed-response",
+    });
+  });
+});
+
+describe("getProductBySetId", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("retains Result Set Provenance for the Product detail boundary", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(crocinFixture), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      }),
+    );
+
+    const result = await getProductBySetId(
+      "498c7d7e-d952-c122-e063-6394a90ae72f",
+    );
+
+    expect(result?.provenance).toEqual({
+      disclaimer: crocinFixture.meta.disclaimer,
+      lastUpdated: "2026-08-19",
+      license: "https://open.fda.gov/license/",
+      terms: "https://open.fda.gov/terms/",
     });
   });
 });

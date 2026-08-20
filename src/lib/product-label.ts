@@ -205,6 +205,74 @@ export function usefulFragments(field: SourceField): string[] {
   return field.fragments.filter((fragment) => fragment.trim().length > 0);
 }
 
+export function findMaterialSourceConflicts(label: ProductLabel): string[] {
+  const routes = label.metadata.regulatory
+    .filter((field) => field.name === "route")
+    .flatMap((field) => field.values.map(String));
+  const dosageText = [
+    ...usefulFragments(label.dosageAndAdministration),
+    ...usefulFragments(label.dosageAndAdministrationTable),
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  if (!dosageText) {
+    return [];
+  }
+
+  const hasSolidDoseInstructions = containsUnnegatedPhrase(
+    dosageText,
+    /\b(?:tablet|tablets|caplet|caplets|pill|pills)\b/g,
+  );
+  const hasOralInstructions = containsUnnegatedPhrase(
+    dosageText,
+    /\b(?:by mouth|orally|swallow)\b/g,
+  );
+  const hasTopicalInstructions = containsUnnegatedPhrase(
+    dosageText,
+    /\b(?:apply|cream|ointment|skin|topical)\b/g,
+  );
+
+  return routes.flatMap((route) => {
+    const normalizedRoute = route.toLowerCase();
+    const topicalRoute = /\b(?:topical|dermal|cutaneous)\b/.test(
+      normalizedRoute,
+    );
+    const oralRoute = /\b(?:oral|buccal|sublingual)\b/.test(normalizedRoute);
+    const nonOralRoute = /\b(?:intravenous|intramuscular|subcutaneous|ophthalmic|otic|nasal|inhalation)\b/.test(
+      normalizedRoute,
+    );
+    const conflicts =
+      (topicalRoute && (hasSolidDoseInstructions || hasOralInstructions)) ||
+      (oralRoute && hasTopicalInstructions) ||
+      (nonOralRoute && (hasSolidDoseInstructions || hasOralInstructions));
+    const dosageDescription = hasSolidDoseInstructions
+      ? "solid oral dosage instructions"
+      : hasOralInstructions
+        ? "oral dosage instructions"
+        : "topical application instructions";
+
+    return conflicts
+      ? [
+          `Source conflict: route metadata lists ${sentenceCase(route)}, while dosage text mentions ${dosageDescription}. The directory displays both source values and does not correct or clinically validate them.`,
+        ]
+      : [];
+  });
+}
+
+function containsUnnegatedPhrase(value: string, pattern: RegExp): boolean {
+  for (const match of value.matchAll(pattern)) {
+    const matchIndex = match.index ?? 0;
+    const precedingText = value.slice(Math.max(0, matchIndex - 24), matchIndex);
+
+    if (!/\b(?:do not|don't|not)\b[\w\s]{0,18}$/.test(precedingText)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function deriveDosageTable(
   fragment: string,
 ): DerivedTableView | undefined {
@@ -404,6 +472,12 @@ function decodeEntities(value: string): string {
       }
     },
   );
+}
+
+function sentenceCase(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

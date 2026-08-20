@@ -20,6 +20,7 @@ export type Product = {
 export type ProductDetails = Product & {
   labelRevisions: ProductLabel[];
   labelRevisionStatus: LabelRevisionStatus;
+  provenance: ResultSetProvenance;
 };
 
 export type ResultSetProvenance = {
@@ -110,12 +111,12 @@ export async function getProductBySetId(
     return undefined;
   }
 
-  const products = await fetchAllProductDetailPages(
+  const detailResult = await fetchAllProductDetailPages(
     `set_id:"${escapeSearchTerm(normalizedSetId)}"`,
     { ...options, includeLabel: true, limit: DETAIL_LIMIT },
   );
 
-  const product = products.find(
+  const product = detailResult.products.find(
     (candidate) => candidate.setId === normalizedSetId,
   );
 
@@ -126,10 +127,13 @@ export async function getProductBySetId(
   const selection = selectPreferredLabelRevisions(
     uniqueLabelRevisions(product.labelRevisions),
   );
-  product.labelRevisions = selection.revisions;
-  product.labelRevisionStatus = selection.status;
 
-  return product as ProductDetails;
+  return {
+    ...product,
+    labelRevisions: selection.revisions,
+    labelRevisionStatus: selection.status,
+    provenance: detailResult.provenance,
+  };
 }
 
 type FetchResultOptions = RequestOptions & {
@@ -229,11 +233,11 @@ async function fetchResultWindow(
 async function fetchAllProductDetailPages(
   search: string,
   options: FetchResultOptions,
-): Promise<Product[]> {
+): Promise<{ products: Product[]; provenance: ResultSetProvenance }> {
   const firstPage = await fetchResultWindow(search, options);
 
   if (firstPage.limit <= 0 || firstPage.skip + firstPage.limit >= firstPage.total) {
-    return firstPage.products;
+    return { products: firstPage.products, provenance: firstPage.provenance };
   }
 
   const products = [...firstPage.products];
@@ -259,7 +263,7 @@ async function fetchAllProductDetailPages(
     nextSkip += page.limit;
   }
 
-  return products;
+  return { products, provenance: firstPage.provenance };
 }
 
 function parseResultWindow(payload: unknown, includeLabel: boolean): ResultWindow {

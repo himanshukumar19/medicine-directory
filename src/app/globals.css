@@ -493,6 +493,44 @@ code {
   font-size: 17px;
 }
 
+.product-trust-boundary {
+  display: grid;
+  gap: 20px;
+  margin-top: 56px;
+  padding-top: 28px;
+  border-top: 1px solid var(--ink);
+}
+
+.product-trust-boundary h2 {
+  margin: -9px 0 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 400;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.product-trust-boundary .label-group-intro {
+  margin: -5px 0 0;
+}
+
+.trust-date-list {
+  margin-top: 0;
+}
+
+.source-conflict-caveat {
+  padding: 19px 22px 20px;
+  border-left: 3px solid var(--signal);
+  background: #eeece3;
+}
+
+.source-conflict-caveat p:last-child {
+  margin: 9px 0 0;
+  color: #454c44;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
 .detail-note {
   max-width: 500px;
   margin: 24px 0 0;
