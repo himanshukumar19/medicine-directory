@@ -134,6 +134,8 @@ function productErrorMessage(error: unknown): string {
   switch (error.kind) {
     case "transport":
       return "openFDA could not be reached. Check your connection and try again.";
+    case "timeout":
+      return "The openFDA Product request timed out. Try again later.";
     case "api-rejection":
       return "openFDA rejected this Product request. Try again later.";
     case "malformed-response":

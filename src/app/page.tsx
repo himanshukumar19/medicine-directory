@@ -1,25 +1,54 @@
 import Link from "next/link";
 
-import { OpenFdaError, searchProducts, type Product } from "@/lib/openfda";
+import {
+  OpenFdaError,
+  searchProducts,
+  type Product,
+  type ResultWindow,
+} from "@/lib/openfda";
 
 function displayName(product: Product): string {
   return product.brandAliases[0] ?? "Brand alias unavailable";
 }
 
-function searchErrorMessage(error: unknown): string {
+type SearchErrorState = {
+  title: string;
+  message: string;
+};
+
+function searchErrorState(error: unknown): SearchErrorState {
   if (!(error instanceof OpenFdaError)) {
-    return "The search could not be completed. Try again in a moment.";
+    return {
+      title: "Search unavailable",
+      message: "The search could not be completed. Retry in a moment.",
+    };
   }
 
   switch (error.kind) {
     case "transport":
-      return "openFDA could not be reached. Check your connection and try again.";
+      return {
+        title: "Search unavailable",
+        message:
+          "openFDA could not be reached. Check your connection and retry the search.",
+      };
+    case "timeout":
+      return {
+        title: "Search timed out",
+        message: "The openFDA search timed out. Retry the search.",
+      };
     case "api-rejection":
-      return "openFDA rejected this search. Try a different Search Term.";
+      return {
+        title: "API rejected search",
+        message:
+          "openFDA rejected this search request. Review the Search Term and retry.",
+      };
     case "malformed-response":
-      return "openFDA returned data we could not interpret. Try again later.";
+      return {
+        title: "Malformed source response",
+        message: "openFDA returned data we could not interpret. Retry later.",
+      };
     default:
-      return error.message;
+      return { title: "Search unavailable", message: error.message };
   }
 }
 
@@ -30,15 +59,16 @@ type HomeProps = {
 export default async function Home(props: HomeProps) {
   const searchParams = await props.searchParams;
   const rawTerm = searchParams.term;
-  const term = Array.isArray(rawTerm) ? rawTerm[0] : rawTerm;
-  let result;
-  let errorMessage;
+  const termValue = Array.isArray(rawTerm) ? rawTerm[0] : rawTerm;
+  const term = termValue?.trim() || undefined;
+  let result: ResultWindow | undefined;
+  let errorState: SearchErrorState | undefined;
 
-  if (term?.trim()) {
+  if (term) {
     try {
       result = await searchProducts(term);
     } catch (error) {
-      errorMessage = searchErrorMessage(error);
+      errorState = searchErrorState(error);
     }
   }
 
@@ -91,10 +121,10 @@ export default async function Home(props: HomeProps) {
           </div>
         )}
 
-        {errorMessage && (
+        {errorState && (
           <div className="message-card message-card-error" role="alert">
-            <p className="card-kicker">Search unavailable</p>
-            <p>{errorMessage}</p>
+            <p className="card-kicker">{errorState.title}</p>
+            <p>{errorState.message}</p>
           </div>
         )}
 
@@ -108,10 +138,15 @@ export default async function Home(props: HomeProps) {
                 </h2>
               </div>
               <p className="result-provenance">
-                {result.total} {result.total === 1 ? "Product" : "Products"} in
-                the Result Set
+                Showing {result.products.length} of {result.total} Products
                 <br />
                 Window limit {result.limit} | offset {result.skip}
+                {isPartialResultWindow(result) && (
+                  <>
+                    <br />
+                    Partial Result Window
+                  </>
+                )}
               </p>
             </div>
 
@@ -122,7 +157,7 @@ export default async function Home(props: HomeProps) {
                 </p>
                 <p>
                   {result.total === 0
-                    ? "No Products were returned for this Search Term."
+                    ? `No Products matched "${term}".`
                     : "The Result Window contained no Product with a usable Product Reference."}
                 </p>
               </div>
@@ -164,4 +199,8 @@ export default async function Home(props: HomeProps) {
       </footer>
     </main>
   );
+}
+
+function isPartialResultWindow(result: ResultWindow): boolean {
+  return result.skip > 0 || result.skip + result.limit < result.total;
 }

@@ -137,8 +137,12 @@ A successfully interpreted Result Set containing zero Products for a Search Term
 _Avoid_: Malformed response, failed search
 
 **Transport Failure**:
-The source could not be reached or completed, such as a network failure or timeout. No claim is made about whether the Search Term has Matches.
+The source could not be reached because of a network or connection failure. No claim is made about whether the Search Term has Matches.
 _Avoid_: No matches, malformed response
+
+**Timeout**:
+The source request did not complete within its allowed time. It is a distinct failure from a Transport Failure, and no claim is made about whether the Search Term has Matches.
+_Avoid_: No matches, transport failure, malformed response
 
 **API Rejection**:
 The source responded with a non-success HTTP outcome. It is distinct from a Transport Failure and from a response whose structure is malformed.

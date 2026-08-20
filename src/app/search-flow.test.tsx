@@ -71,6 +71,135 @@ describe("search and open a Product", () => {
     expect(detailMarkup).toContain(productSetId);
   });
 
+  it("shows separate Products and makes a partial Result Window explicit", async () => {
+    const firstRecord = crocinFixture.results[0];
+    const secondSetId = "second-product";
+    const secondRecord = {
+      ...firstRecord,
+      set_id: secondSetId,
+      openfda: {
+        ...firstRecord.openfda,
+        brand_name: ["Crocin Alternative"],
+      },
+    };
+    const fixture = {
+      ...crocinFixture,
+      meta: {
+        ...crocinFixture.meta,
+        results: { total: 25, limit: 2, skip: 0 },
+      },
+      results: [firstRecord, secondRecord],
+    };
+
+    mockProductFixture(fixture);
+
+    const home = await Home({
+      searchParams: Promise.resolve({ term: "Crocin" }),
+    });
+    const markup = renderToStaticMarkup(home);
+
+    expect(markup).toContain("Crocin MAX");
+    expect(markup).toContain("Crocin Alternative");
+    expect(markup).toContain("Showing 2 of 25 Products");
+    expect(markup).toContain("Partial Result Window");
+    expect(markup).toContain("Window limit 2 | offset 0");
+    expect(markup.match(/class="product-link"/g)).toHaveLength(2);
+  });
+
+  it("shows the Search Term in a successful No Matches state", async () => {
+    const fixture = {
+      ...crocinFixture,
+      meta: {
+        ...crocinFixture.meta,
+        results: { total: 0, limit: 10, skip: 0 },
+      },
+      results: [],
+    };
+
+    mockProductFixture(fixture);
+
+    const home = await Home({
+      searchParams: Promise.resolve({ term: "Unknown Brand" }),
+    });
+    const markup = renderToStaticMarkup(home);
+
+    expect(markup).toContain("No Matches");
+    expect(markup).toContain("No Products matched");
+    expect(markup).toContain("Unknown Brand");
+  });
+
+  it("excludes unidentifiable records and degrades sparse display fields", async () => {
+    const fixture = {
+      ...crocinFixture,
+      meta: {
+        ...crocinFixture.meta,
+        results: { total: 2, limit: 10, skip: 0 },
+      },
+      results: [
+        { set_id: "sparse-product" },
+        { openfda: { brand_name: ["Unroutable label"] } },
+      ],
+    };
+
+    mockProductFixture(fixture);
+
+    const home = await Home({
+      searchParams: Promise.resolve({ term: "Sparse" }),
+    });
+    const markup = renderToStaticMarkup(home);
+
+    expect(markup).toContain("Brand alias unavailable");
+    expect(markup).toContain("sparse-product");
+    expect(markup).not.toContain("Unroutable label");
+    expect(markup).not.toContain("undefined");
+  });
+
+  it.each([
+    {
+      name: "a transport failure",
+      mock: () => vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("fetch failed")),
+      title: "Search unavailable",
+      message: "openFDA could not be reached. Check your connection and retry the search.",
+    },
+    {
+      name: "a timeout",
+      mock: () =>
+        vi
+          .spyOn(globalThis, "fetch")
+          .mockRejectedValue(new DOMException("The operation timed out", "TimeoutError")),
+      title: "Search timed out",
+      message: "The openFDA search timed out. Retry the search.",
+    },
+    {
+      name: "an API rejection",
+      mock: () =>
+        vi.spyOn(globalThis, "fetch").mockResolvedValue(
+          new Response("rejected", { status: 503 }),
+        ),
+      title: "API rejected search",
+      message: "openFDA rejected this search request. Review the Search Term and retry.",
+    },
+    {
+      name: "a malformed response",
+      mock: () =>
+        vi.spyOn(globalThis, "fetch").mockResolvedValue(
+          new Response("not json", { status: 200 }),
+        ),
+      title: "Malformed source response",
+      message: "openFDA returned data we could not interpret. Retry later.",
+    },
+  ])("shows a distinct retry-oriented state for $name", async ({ mock, title, message }) => {
+    mock();
+
+    const home = await Home({
+      searchParams: Promise.resolve({ term: "Crocin MAX" }),
+    });
+    const markup = renderToStaticMarkup(home);
+
+    expect(markup).toContain(title);
+    expect(markup).toContain(message);
+  });
+
   it("renders a recoverable message when the Product source is unreachable", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("fetch failed"));
 
@@ -82,6 +211,22 @@ describe("search and open a Product", () => {
     expect(detailMarkup).toContain("Product unavailable");
     expect(detailMarkup).toContain(
       "openFDA could not be reached. Check your connection and try again.",
+    );
+  });
+
+  it("renders a retry message when the Product source times out", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(
+      new DOMException("The operation timed out", "TimeoutError"),
+    );
+
+    const detail = await ProductPage({
+      params: Promise.resolve({ setId: productSetId }),
+    });
+    const detailMarkup = renderToStaticMarkup(detail);
+
+    expect(detailMarkup).toContain("Product unavailable");
+    expect(detailMarkup).toContain(
+      "The openFDA Product request timed out. Try again later.",
     );
   });
 

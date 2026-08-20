@@ -8,6 +8,7 @@ import {
 const OPENFDA_LABEL_URL = "https://api.fda.gov/drug/label.json";
 const DEFAULT_LIMIT = 10;
 const DETAIL_LIMIT = 100;
+const DEFAULT_TIMEOUT_MS = 10_000;
 
 export type Product = {
   setId: string;
@@ -59,6 +60,7 @@ type OpenFdaResponse = {
 export type OpenFdaErrorKind =
   | "invalid-search-term"
   | "transport"
+  | "timeout"
   | "api-rejection"
   | "malformed-response";
 
@@ -76,6 +78,7 @@ type RequestOptions = {
   fetcher?: typeof fetch;
   limit?: number;
   skip?: number;
+  timeoutMs?: number;
 };
 
 export async function searchProducts(
@@ -140,6 +143,7 @@ async function fetchResultWindow(
     includeLabel = false,
     limit = DEFAULT_LIMIT,
     skip = 0,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
   }: FetchResultOptions,
 ): Promise<ResultWindow> {
   const requestUrl = new URL(OPENFDA_LABEL_URL);
@@ -148,14 +152,28 @@ async function fetchResultWindow(
   requestUrl.searchParams.set("skip", String(skip));
 
   let response: Response;
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
 
   try {
-    response = await fetcher(requestUrl.toString(), { cache: "no-store" });
+    response = await fetcher(requestUrl.toString(), {
+      cache: "no-store",
+      signal: timeoutController.signal,
+    });
   } catch (error) {
+    if (timeoutController.signal.aborted || isTimeoutError(error)) {
+      throw new OpenFdaError(
+        "timeout",
+        "The openFDA request timed out.",
+      );
+    }
+
     throw new OpenFdaError(
       "transport",
       error instanceof Error ? error.message : "The openFDA request failed.",
     );
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (!response.ok) {
@@ -365,5 +383,20 @@ function malformedResponse(): OpenFdaError {
   return new OpenFdaError(
     "malformed-response",
     "openFDA returned a response with an unrecognized shape.",
+  );
+}
+
+function isTimeoutError(error: unknown): boolean {
+  if (!isRecord(error)) {
+    return false;
+  }
+
+  const name = stringValue(error.name)?.toLowerCase();
+  const message = stringValue(error.message)?.toLowerCase();
+
+  return (
+    name === "timeouterror" ||
+    name === "etimedout" ||
+    Boolean(message && /\btimeout\b|\btimed out\b/.test(message))
   );
 }

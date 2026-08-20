@@ -80,4 +80,91 @@ describe("searchProducts", () => {
     ]);
     expect(result.total).toBe(3);
   });
+
+  it("returns No Matches for a valid empty Result Set", async () => {
+    const fixture = {
+      ...crocinFixture,
+      meta: {
+        ...crocinFixture.meta,
+        results: { total: 0, limit: 10, skip: 0 },
+      },
+      results: [],
+    };
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(fixture), { status: 200 }),
+    );
+
+    await expect(searchProducts("Unknown Brand")).resolves.toMatchObject({
+      products: [],
+      total: 0,
+      limit: 10,
+      skip: 0,
+    });
+  });
+
+  it.each([
+    {
+      name: "a transport failure",
+      error: new TypeError("fetch failed"),
+      kind: "transport",
+    },
+    {
+      name: "a timeout",
+      error: new DOMException("The operation timed out", "TimeoutError"),
+      kind: "timeout",
+    },
+  ])("classifies $name separately at the typed boundary", async ({ error, kind }) => {
+    const fetcher = vi.fn().mockRejectedValue(error);
+
+    await expect(
+      searchProducts("Crocin MAX", { fetcher }),
+    ).rejects.toMatchObject({
+      kind,
+    });
+  });
+
+  it("aborts an openFDA request that exceeds the configured timeout", async () => {
+    const fetcher = async (
+      _input: RequestInfo | URL,
+      init?: RequestInit,
+    ): Promise<Response> =>
+      new Promise((_, reject) => {
+        init?.signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("The operation timed out", "TimeoutError")),
+          { once: true },
+        );
+      });
+
+    await expect(
+      searchProducts("Crocin MAX", { fetcher, timeoutMs: 1 }),
+    ).rejects.toMatchObject({ kind: "timeout" });
+  });
+
+  it("classifies API rejection and malformed responses separately", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("rejected", { status: 503 }),
+    );
+
+    await expect(searchProducts("Crocin MAX")).rejects.toMatchObject({
+      kind: "api-rejection",
+    });
+
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response("not json", { status: 200 }),
+    );
+
+    await expect(searchProducts("Crocin MAX")).rejects.toMatchObject({
+      kind: "malformed-response",
+    });
+
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response(JSON.stringify({ results: [] }), { status: 200 }),
+    );
+
+    await expect(searchProducts("Crocin MAX")).rejects.toMatchObject({
+      kind: "malformed-response",
+    });
+  });
 });
