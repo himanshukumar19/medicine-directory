@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getProductBySetId } from "@/lib/openfda";
+import { OpenFdaError, getProductBySetId } from "@/lib/openfda";
 import {
   deriveDosageTable,
   effectiveTimeTimestamp,
@@ -16,17 +16,64 @@ type ProductPageProps = {
   params: Promise<{ setId: string }>;
 };
 
+type ProductBadge = {
+  label: "Route" | "Form";
+  value: string;
+};
+
 export default async function ProductPage(
   props: ProductPageProps,
 ) {
   const { setId } = await props.params;
-  const product = await getProductBySetId(setId);
+  let product: Awaited<ReturnType<typeof getProductBySetId>>;
+  let errorMessage: string | undefined;
+
+  try {
+    product = await getProductBySetId(setId);
+  } catch (error) {
+    if (isUnknownProductError(error)) {
+      notFound();
+    }
+    errorMessage = productErrorMessage(error);
+  }
+
+  if (errorMessage) {
+    return (
+      <main className="site-shell product-page">
+        <header className="site-header">
+          <Link className="wordmark" href="/">
+            <span className="wordmark-mark" aria-hidden="true">
+              +
+            </span>
+            <span>Medicine Directory</span>
+          </Link>
+          <Link className="back-link" href="/">
+            Back to search
+          </Link>
+        </header>
+
+        <article className="product-detail" aria-labelledby="product-error-title">
+          <p className="eyebrow">Product Record</p>
+          <div className="message-card message-card-error" role="alert">
+            <p className="card-kicker" id="product-error-title">
+              Product unavailable
+            </p>
+            <p>{errorMessage}</p>
+          </div>
+        </article>
+      </main>
+    );
+  }
 
   if (!product) {
     notFound();
   }
 
   const brandAlias = product.brandAliases[0] ?? "Brand alias unavailable";
+  const productBadges =
+    product.labelRevisions.length === 1
+      ? getProductBadges(product.labelRevisions[0])
+      : [];
 
   return (
     <main className="site-shell product-page">
@@ -43,8 +90,13 @@ export default async function ProductPage(
       </header>
 
       <article className="product-detail" aria-labelledby="product-title">
-        <p className="eyebrow">Product Record</p>
-        <h1 id="product-title">{brandAlias}</h1>
+        <div className="product-heading">
+          <div>
+            <p className="eyebrow">Product Record</p>
+            <h1 id="product-title">{brandAlias}</h1>
+          </div>
+          <ProductBadges badges={productBadges} />
+        </div>
         <p className="detail-intro">
           This page is anchored to the source Product Reference below. The
           readable Brand Alias is a display label, not the identity. The source
@@ -74,6 +126,95 @@ export default async function ProductPage(
   );
 }
 
+function productErrorMessage(error: unknown): string {
+  if (!(error instanceof OpenFdaError)) {
+    return "The Product could not be loaded. Try again in a moment.";
+  }
+
+  switch (error.kind) {
+    case "transport":
+      return "openFDA could not be reached. Check your connection and try again.";
+    case "api-rejection":
+      return "openFDA rejected this Product request. Try again later.";
+    case "malformed-response":
+      return "openFDA returned data we could not interpret. Try again later.";
+    default:
+      return error.message;
+  }
+}
+
+function isUnknownProductError(error: unknown): boolean {
+  return (
+    error instanceof OpenFdaError &&
+    error.kind === "api-rejection" &&
+    error.message.includes("status 404")
+  );
+}
+
+function getProductBadges(label: ProductLabel): ProductBadge[] {
+  const routeValues = uniqueValues(
+    getOpenFdaValues(label, "route"),
+  );
+  const dosageForms = uniqueValues(getOpenFdaValues(label, "dosage_form"));
+
+  return [
+    ...routeValues.map((value) => ({
+      label: "Route" as const,
+      value: formatBadgeValue(value),
+    })),
+    ...dosageForms.map((value) => ({ label: "Form" as const, value })),
+  ];
+}
+
+function ProductBadges({ badges }: { badges: ProductBadge[] }) {
+  if (badges.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="product-badges" aria-label="Product formulation">
+      {badges.map((badge) => (
+        <span className="product-badge" key={`${badge.label}-${badge.value}`}>
+          <span className="product-badge-label">{badge.label}</span>
+          <span>{badge.value}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function getOpenFdaValues(label: ProductLabel, name: string): string[] {
+  return label.metadata.regulatory
+    .filter((field) => field.name === name)
+    .flatMap((field) => field.values.map(String));
+}
+
+function formatBadgeValue(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function uniqueValues(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+function AlertIcon() {
+  return (
+    <svg
+      className="alert-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M12 3.5 21 20H3l9-16.5Z" />
+      <path d="M12 9v5" />
+      <path d="M12 17.5h.01" />
+    </svg>
+  );
+}
+
 function LabelContent({
   labels,
   revisionStatus,
@@ -90,12 +231,15 @@ function LabelContent({
       {labels.map((label, index) => (
         <div className="label-revision" key={label.provenance.id ?? index}>
           {labels.length > 1 ? (
-            <p className="eyebrow">
-              {revisionStatus === "tied"
-                ? "Co-preferred Label Revision"
-                : "Ambiguous Label Revision"}{" "}
-              {index + 1}
-            </p>
+            <>
+              <p className="eyebrow">
+                {revisionStatus === "tied"
+                  ? "Co-preferred Label Revision"
+                  : "Ambiguous Label Revision"}{" "}
+                {index + 1}
+              </p>
+              <ProductBadges badges={getProductBadges(label)} />
+            </>
           ) : null}
           <LabelRevisionProvenance label={label} />
           <LabelSections label={label} revisionIndex={index} />
@@ -256,7 +400,13 @@ function LabelSections({
           aria-labelledby={`safety-heading-${revisionIndex}`}
         >
           <p className="eyebrow">Independent Source Fields</p>
-          <h2 id={`safety-heading-${revisionIndex}`}>Safety Fields</h2>
+          <h2
+            className="section-heading section-heading-safety"
+            id={`safety-heading-${revisionIndex}`}
+          >
+            <AlertIcon />
+            <span>Safety Fields</span>
+          </h2>
           <p className="label-group-intro">
             Only safety fields supplied by the source are shown. An omitted or
             empty field is not a safety conclusion.
@@ -274,40 +424,55 @@ function LabelSections({
         </section>
       ) : null}
 
-      {hasSupportingFields || hasQuestions ? (
-        <section
-          className="label-group"
-          aria-labelledby={`supporting-heading-${revisionIndex}`}
-        >
-          <p className="eyebrow">Source Label Context</p>
-          <h2 id={`supporting-heading-${revisionIndex}`}>
-            Supporting Label Artifacts
-          </h2>
-          <p className="label-group-intro">
-            These fields are shown as source content and do not replace the core
-            label sections above.
-          </p>
-          <div className="source-section-list">
-            {supportingFields.map(([fieldName, title, field]) => (
-              <SourceSection
-                key={fieldName}
-                fieldName={fieldName}
-                field={field}
-                title={title}
-              />
-            ))}
-            <SourceSection
-              fieldName="questions"
-              field={label.supporting.questions}
-              title="Label Contact Text"
-              note="Label contact text printed on this label."
-            />
-          </div>
-        </section>
-      ) : null}
+      {hasSupportingFields || hasQuestions || hasMetadata ? (
+        <details className="source-metadata-disclosure" open={false}>
+          <summary>
+            <span className="disclosure-title">
+              Show regulatory and source metadata
+            </span>
+            <span className="disclosure-action">
+              <span className="disclosure-closed">Show more</span>
+              <span className="disclosure-open">Show less</span>
+            </span>
+          </summary>
+          <div className="source-metadata-disclosure-content">
+            {hasSupportingFields || hasQuestions ? (
+              <section
+                className="label-group"
+                aria-labelledby={`supporting-heading-${revisionIndex}`}
+              >
+                <p className="eyebrow">Source Label Context</p>
+                <h2 id={`supporting-heading-${revisionIndex}`}>
+                  Supporting Label Artifacts
+                </h2>
+                <p className="label-group-intro">
+                  These fields are shown as source content and do not replace
+                  the core label sections above.
+                </p>
+                <div className="source-section-list">
+                  {supportingFields.map(([fieldName, title, field]) => (
+                    <SourceSection
+                      key={fieldName}
+                      fieldName={fieldName}
+                      field={field}
+                      title={title}
+                    />
+                  ))}
+                  <SourceSection
+                    fieldName="questions"
+                    field={label.supporting.questions}
+                    title="Label Contact Text"
+                    note="Label contact text printed on this label."
+                  />
+                </div>
+              </section>
+            ) : null}
 
-      {hasMetadata ? (
-        <MetadataSection label={label} revisionIndex={revisionIndex} />
+            {hasMetadata ? (
+              <MetadataSection label={label} revisionIndex={revisionIndex} />
+            ) : null}
+          </div>
+        </details>
       ) : null}
     </div>
   );
@@ -336,10 +501,37 @@ function SourceSection({
       {note ? <p className="source-section-note">{note}</p> : null}
       <div className="source-fragments">
         {fragments.map((fragment, index) => (
-          <p key={`${fieldName}-${index}`}>{fragment}</p>
+          <SourceFragment
+            key={`${fieldName}-${index}`}
+            fragment={fragment}
+          />
         ))}
       </div>
     </section>
+  );
+}
+
+function SourceFragment({
+  fragment,
+}: {
+  fragment: string;
+}) {
+  if (fragment.length <= 520) {
+    return <p className="source-fragment">{fragment}</p>;
+  }
+
+  const preview = `${fragment
+    .slice(0, 320)
+    .replace(/\s+\S*$/, "")}…`;
+
+  return (
+    <details className="long-source-disclosure">
+      <summary>
+        <span className="long-source-preview">{preview}</span>
+        <span className="disclosure-action">Read full text</span>
+      </summary>
+      <p className="source-fragment long-source-full">{fragment}</p>
+    </details>
   );
 }
 
@@ -355,9 +547,10 @@ function DosageSection({ label }: { label: ProductLabel }) {
     <section className="source-section dosage-section" data-source-field="dosage_and_administration">
       <h3>Dosage and Administration</h3>
       {plainFragments.map((fragment, index) => (
-        <p key={`dosage-${index}`} className="source-fragment">
-          {fragment}
-        </p>
+        <SourceFragment
+          key={`dosage-${index}`}
+          fragment={fragment}
+        />
       ))}
       {richFragments.map((fragment, index) => {
         const table = deriveDosageTable(fragment);
@@ -385,7 +578,10 @@ function DosageSection({ label }: { label: ProductLabel }) {
               </div>
             ) : null}
             <details className="raw-source-disclosure">
-              <summary>Raw dosage source fragment</summary>
+              <summary>
+                <span>Raw dosage source fragment</span>
+                <span className="disclosure-action">Show raw</span>
+              </summary>
               <pre>{fragment}</pre>
             </details>
           </div>

@@ -52,7 +52,8 @@ input {
 
 button:focus-visible,
 a:focus-visible,
-input:focus-visible {
+input:focus-visible,
+summary:focus-visible {
   outline: 3px solid var(--signal);
   outline-offset: 3px;
 }
@@ -416,6 +417,48 @@ code {
   line-height: 0.92;
 }
 
+.product-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 32px;
+}
+
+.product-heading h1 {
+  margin-bottom: 0;
+}
+
+.product-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 7px;
+  padding-bottom: 8px;
+}
+
+.product-badge {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  border: 1px solid var(--ink);
+  padding: 8px 10px 7px;
+  background: var(--white);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: lowercase;
+}
+
+.product-badge-label {
+  color: var(--signal-dark);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 .detail-intro {
   max-width: 590px;
   margin-bottom: 50px;
@@ -480,6 +523,97 @@ code {
   font-size: 11px;
   letter-spacing: 0.04em;
   line-height: 1.6;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.alert-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  color: var(--signal);
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.source-metadata-disclosure {
+  border-top: 1px solid var(--ink);
+}
+
+.source-metadata-disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 19px 0 17px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.source-metadata-disclosure > summary::-webkit-details-marker,
+.long-source-disclosure summary::-webkit-details-marker,
+.raw-source-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.source-metadata-disclosure > summary::after {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-right: 1px solid var(--signal-dark);
+  border-bottom: 1px solid var(--signal-dark);
+  content: "";
+  transform: rotate(45deg) translateY(-3px);
+  transition: transform 160ms ease;
+}
+
+.source-metadata-disclosure[open] > summary::after {
+  transform: rotate(225deg) translate(-2px, -2px);
+}
+
+.disclosure-title {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.disclosure-action {
+  color: var(--signal-dark);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.disclosure-open {
+  display: none;
+}
+
+.source-metadata-disclosure[open] .disclosure-closed {
+  display: none;
+}
+
+.source-metadata-disclosure[open] .disclosure-open {
+  display: inline;
+}
+
+.source-metadata-disclosure-content {
+  display: grid;
+  gap: 56px;
+  padding-bottom: 8px;
+}
+
+.source-metadata-disclosure:not([open])
+  > .source-metadata-disclosure-content {
+  display: none !important;
 }
 
 .label-group {
@@ -548,6 +682,32 @@ code {
   overflow-wrap: anywhere;
 }
 
+.long-source-disclosure {
+  display: grid;
+  gap: 15px;
+}
+
+.long-source-disclosure summary {
+  display: grid;
+  gap: 11px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.long-source-preview {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #454c44;
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.long-source-full {
+  margin-top: 0;
+}
+
 .rich-source-fragment {
   display: grid;
   gap: 18px;
@@ -576,7 +736,11 @@ code {
 }
 
 .raw-source-disclosure summary {
-  width: fit-content;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  width: 100%;
   cursor: pointer;
   color: var(--muted);
   font-size: 10px;
@@ -703,6 +867,19 @@ code {
     padding: 80px 0;
   }
 
+  .product-heading {
+    display: block;
+  }
+
+  .product-heading h1 {
+    margin-bottom: 20px;
+  }
+
+  .product-badges {
+    justify-content: start;
+    padding-bottom: 0;
+  }
+
   .identity-list div {
     display: block;
   }
@@ -721,12 +898,17 @@ code {
     gap: 42px;
   }
 
+  .source-metadata-disclosure-content {
+    gap: 42px;
+  }
+
   .source-section {
     padding: 20px 18px 21px;
   }
 
   .source-fragments p,
-  .source-fragment {
+  .source-fragment,
+  .long-source-preview {
     font-size: 15px;
   }
 

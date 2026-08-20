@@ -71,6 +71,20 @@ describe("search and open a Product", () => {
     expect(detailMarkup).toContain(productSetId);
   });
 
+  it("renders a recoverable message when the Product source is unreachable", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("fetch failed"));
+
+    const detail = await ProductPage({
+      params: Promise.resolve({ setId: productSetId }),
+    });
+    const detailMarkup = renderToStaticMarkup(detail);
+
+    expect(detailMarkup).toContain("Product unavailable");
+    expect(detailMarkup).toContain(
+      "openFDA could not be reached. Check your connection and try again.",
+    );
+  });
+
   it("renders complete label content with independent source boundaries", async () => {
     const detailMarkup = await renderProductFixture(crocinFixture);
 
