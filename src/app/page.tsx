@@ -94,15 +94,20 @@ export default async function Home(props: HomeProps) {
         <form className="search-form" action="/" method="get">
           <label htmlFor="term">Search Term</label>
           <div className="search-controls">
-            <input
-              id="term"
-              name="term"
-              type="search"
-              defaultValue={term}
-              placeholder="Try Crocin MAX or Tylenol"
-              autoComplete="off"
-              required
-            />
+            <div className="search-input-wrap">
+              <span className="search-field-icon" aria-hidden="true">
+                <SearchIcon />
+              </span>
+              <input
+                id="term"
+                name="term"
+                type="search"
+                defaultValue={term}
+                placeholder="Try Crocin MAX or Tylenol"
+                autoComplete="off"
+                required
+              />
+            </div>
             <button type="submit">Search</button>
           </div>
         </form>
@@ -200,6 +205,21 @@ export default async function Home(props: HomeProps) {
         <span>Brand names are display aliases.</span>
       </footer>
     </main>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg
+      className="search-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <circle cx="10.8" cy="10.8" r="6.3" />
+      <path d="m15.5 15.5 4.4 4.4" />
+    </svg>
   );
 }
 

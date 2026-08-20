@@ -329,6 +329,37 @@ function AlertIcon() {
   );
 }
 
+function PillIcon() {
+  return (
+    <svg
+      className="pill-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M7.2 4.5a4.2 4.2 0 0 1 5.9 0l6.4 6.4a4.2 4.2 0 0 1-5.9 5.9l-6.4-6.4a4.2 4.2 0 0 1 0-5.9Z" />
+      <path d="m9.4 6.7 7.9 7.9" />
+    </svg>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg
+      className="info-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 10.6v5.2" />
+      <path d="M12 7.5h.01" />
+    </svg>
+  );
+}
+
 function LabelContent({
   labels,
   revisionStatus,
@@ -516,7 +547,7 @@ function LabelSections({
     <div className="label-sections">
       {hasCoreFields || hasDosage ? (
         <section
-          className="label-group"
+          className="label-group label-group-core"
           aria-labelledby={`core-label-heading-${revisionIndex}`}
         >
           <p className="eyebrow">Source Label</p>
@@ -537,7 +568,7 @@ function LabelSections({
 
       {hasSafetyFields ? (
         <section
-          className="label-group"
+          className="label-group label-group-safety"
           aria-labelledby={`safety-heading-${revisionIndex}`}
         >
           <p className="eyebrow">Independent Source Fields</p>
@@ -579,7 +610,7 @@ function LabelSections({
           <div className="source-metadata-disclosure-content">
             {hasSupportingFields || hasQuestions ? (
               <section
-                className="label-group"
+                className="label-group label-group-supporting"
                 aria-labelledby={`supporting-heading-${revisionIndex}`}
               >
                 <p className="eyebrow">Source Label Context</p>
@@ -638,7 +669,16 @@ function SourceSection({
 
   return (
     <section className="source-section" data-source-field={fieldName}>
-      <h3>{title}</h3>
+      <h3
+        className={
+          fieldName === "active_ingredient"
+            ? "source-section-heading"
+            : undefined
+        }
+      >
+        {fieldName === "active_ingredient" ? <PillIcon /> : null}
+        <span>{title}</span>
+      </h3>
       {note ? <p className="source-section-note">{note}</p> : null}
       <div className="source-fragments">
         {fragments.map((fragment, index) => (
@@ -762,12 +802,16 @@ function MetadataSection({
     <>
       {hasProvenanceFields ? (
         <section
-          className="label-group"
+          className="label-group label-group-metadata"
           aria-labelledby={`provenance-heading-${revisionIndex}`}
         >
           <p className="eyebrow">Product Provenance</p>
-          <h2 id={`provenance-heading-${revisionIndex}`}>
-            SPL Source Identifiers
+          <h2
+            className="section-heading section-heading-metadata"
+            id={`provenance-heading-${revisionIndex}`}
+          >
+            <InfoIcon />
+            <span>SPL Source Identifiers</span>
           </h2>
           <p className="label-group-intro">
             These identifiers remain separate source values and do not replace
@@ -782,11 +826,17 @@ function MetadataSection({
       ) : null}
       {hasMetadataFields ? (
         <section
-          className="label-group"
+          className="label-group label-group-metadata"
           aria-labelledby={`metadata-heading-${revisionIndex}`}
         >
           <p className="eyebrow">Independent Attributes</p>
-          <h2 id={`metadata-heading-${revisionIndex}`}>Regulatory Metadata</h2>
+          <h2
+            className="section-heading section-heading-metadata"
+            id={`metadata-heading-${revisionIndex}`}
+          >
+            <InfoIcon />
+            <span>Regulatory Metadata</span>
+          </h2>
           <p className="label-group-intro">
             These values are shown independently as supplied under the openFDA
             namespace and are not application-validated facts.
