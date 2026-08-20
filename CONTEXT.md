@@ -133,7 +133,7 @@ An API response whose required structural shape cannot be interpreted as a Resul
 _Avoid_: Empty Result Set, no-match response
 
 **No Matches**:
-A successfully interpreted Result Set containing zero Products for a Search Term. It is a valid search outcome, not an API failure.
+A search outcome where openFDA explicitly indicates that no Products matched a Search Term. This includes a successfully interpreted Result Set containing zero Products and openFDA's documented search response with HTTP 404 and an error body of `{"error":{"code":"NOT_FOUND","message":"No matches found!"}}`. The 404 form is normalized to No Matches only at the search boundary; it does not provide Result Set metadata.
 _Avoid_: Malformed response, failed search
 
 **Transport Failure**:
@@ -145,7 +145,7 @@ The source request did not complete within its allowed time. It is a distinct fa
 _Avoid_: No matches, transport failure, malformed response
 
 **API Rejection**:
-The source responded with a non-success HTTP outcome. It is distinct from a Transport Failure and from a response whose structure is malformed.
+The source responded with a non-success HTTP outcome that does not meet the documented 404 no-match shape. It is distinct from a Transport Failure, No Matches, and from a response whose structure is malformed.
 _Avoid_: Network error, no matches
 
 **OpenFDA Market Provenance**:

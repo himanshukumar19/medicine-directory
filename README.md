@@ -42,7 +42,7 @@ SEO does not silently choose the first label when revisions are tied or their da
 ## What I Would Do Differently With More Time
 
 - Add real search pagination. The current homepage reports the returned count, API `total`, `limit`, `skip`, and a Partial Result Window indicator, but it does not provide controls to move beyond the first search window.
-- Make the API-rejected-search state friendlier when the upstream response is effectively a no-match case. The domain should keep rejection and No Matches distinct for diagnosis, while the user-facing copy should not ask someone to review a Search Term when no matching label was found.
+- The search now treats openFDA's documented 404 no-match response as No Matches for users while retaining API Rejection for other 4xx/5xx responses, malformed bodies, and transport failures.
 - Broaden fixture and rendered-test coverage beyond the current Advil, Crocin, and Tylenol samples. I would add more realistic brand/formulation combinations, non-oral routes, tied and sparse revisions, present-but-empty safety fields, and additional Indian-user scenarios.
 - Reduce the cost of detail-page revision lookup. The Product route walks label-result pages to select the latest valid `effective_time`; an upstream response with a small effective page size can require many sequential requests for a Product with many revisions.
 

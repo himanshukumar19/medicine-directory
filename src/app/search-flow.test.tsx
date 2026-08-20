@@ -304,6 +304,29 @@ describe("search and open a Product", () => {
     expect(markup).toContain("Unknown Brand");
   });
 
+  it("shows a friendly no-match state for openFDA's explicit 404 response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: { code: "NOT_FOUND", message: "No matches found!" },
+        }),
+        { status: 404 },
+      ),
+    );
+
+    const home = await Home({
+      searchParams: Promise.resolve({ term: "Unknown Brand" }),
+    });
+    const markup = renderToStaticMarkup(home);
+
+    expect(markup).toContain("No Matches");
+    expect(markup).toContain("No medicines matched");
+    expect(markup).toContain("Unknown Brand");
+    expect(markup).toContain("Check the spelling and try again.");
+    expect(markup).not.toContain("API rejected search");
+    expect(markup).not.toContain("message-card-error");
+  });
+
   it("excludes unidentifiable records and degrades sparse display fields", async () => {
     const fixture = {
       ...crocinFixture,

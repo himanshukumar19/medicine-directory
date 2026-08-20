@@ -60,6 +60,7 @@ type OpenFdaResponse = {
 
 export type OpenFdaErrorKind =
   | "invalid-search-term"
+  | "no-matches"
   | "transport"
   | "timeout"
   | "api-rejection"
@@ -97,7 +98,7 @@ export async function searchProducts(
 
   return fetchResultWindow(
     `openfda.brand_name:"${escapeSearchTerm(normalizedTerm)}"`,
-    options,
+    { ...options, classify404NoMatches: true },
   );
 }
 
@@ -137,12 +138,14 @@ export async function getProductBySetId(
 }
 
 type FetchResultOptions = RequestOptions & {
+  classify404NoMatches?: boolean;
   includeLabel?: boolean;
 };
 
 async function fetchResultWindow(
   search: string,
   {
+    classify404NoMatches = false,
     fetcher = globalThis.fetch,
     includeLabel = false,
     limit = DEFAULT_LIMIT,
@@ -196,9 +199,33 @@ async function fetchResultWindow(
   }
 
   if (!response.ok) {
-    if (timeoutId !== undefined) {
-      clearTimeout(timeoutId);
+    let isNoMatches = false;
+
+    try {
+      if (response.status === 404 && classify404NoMatches) {
+        const errorPayload = await Promise.race([response.json(), timeoutPromise]);
+        isNoMatches = isNoMatchesPayload(errorPayload);
+      }
+    } catch (error) {
+      if (timeoutController.signal.aborted || isTimeoutError(error)) {
+        throw new OpenFdaError(
+          "timeout",
+          "The openFDA request timed out.",
+        );
+      }
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
     }
+
+    if (isNoMatches) {
+      throw new OpenFdaError(
+        "no-matches",
+        "openFDA returned no matching Products.",
+      );
+    }
+
     throw new OpenFdaError(
       "api-rejection",
       `openFDA rejected the request with status ${response.status}.`,
@@ -410,6 +437,17 @@ function stringArray(value: unknown): string[] {
     .filter((entry): entry is string => typeof entry === "string")
     .map((entry) => entry.trim())
     .filter(Boolean);
+}
+
+function isNoMatchesPayload(payload: unknown): boolean {
+  if (!isRecord(payload) || !isRecord(payload.error)) {
+    return false;
+  }
+
+  const code = stringValue(payload.error.code)?.trim().toUpperCase();
+  const message = stringValue(payload.error.message)?.trim().toLowerCase();
+
+  return code === "NOT_FOUND" && message === "no matches found!";
 }
 
 function malformedResponse(): OpenFdaError {

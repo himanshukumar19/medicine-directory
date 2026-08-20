@@ -103,6 +103,70 @@ describe("searchProducts", () => {
     });
   });
 
+  it("classifies an explicit openFDA 404 no-match response separately", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: { code: "NOT_FOUND", message: "No matches found!" },
+        }),
+        { status: 404 },
+      ),
+    );
+
+    await expect(
+      searchProducts("Unknown Brand", { fetcher }),
+    ).rejects.toMatchObject({ kind: "no-matches" });
+  });
+
+  it("keeps other 404 responses and Product detail no-matches as API rejections", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: { code: "NOT_FOUND", message: "Invalid query" },
+        }),
+        { status: 404 },
+      ),
+    );
+
+    await expect(
+      searchProducts("Unknown Brand", { fetcher }),
+    ).rejects.toMatchObject({ kind: "api-rejection" });
+
+    fetcher.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: { code: "NOT_FOUND", message: "No matches found!" },
+        }),
+        { status: 503 },
+      ),
+    );
+
+    await expect(
+      searchProducts("Unknown Brand", { fetcher }),
+    ).rejects.toMatchObject({ kind: "api-rejection" });
+
+    fetcher.mockResolvedValue(
+      new Response("not json", { status: 404 }),
+    );
+
+    await expect(
+      searchProducts("Unknown Brand", { fetcher }),
+    ).rejects.toMatchObject({ kind: "api-rejection" });
+
+    fetcher.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: { code: "NOT_FOUND", message: "No matches found!" },
+        }),
+        { status: 404 },
+      ),
+    );
+
+    await expect(
+      getProductBySetId("unknown-product", { fetcher }),
+    ).rejects.toMatchObject({ kind: "api-rejection" });
+  });
+
   it.each([
     {
       name: "a transport failure",

@@ -14,9 +14,10 @@ function displayName(product: Product): string {
 type SearchErrorState = {
   title: string;
   message: string;
+  isNoMatches?: boolean;
 };
 
-function searchErrorState(error: unknown): SearchErrorState {
+function searchErrorState(error: unknown, searchTerm: string): SearchErrorState {
   if (!(error instanceof OpenFdaError)) {
     return {
       title: "Search unavailable",
@@ -25,6 +26,12 @@ function searchErrorState(error: unknown): SearchErrorState {
   }
 
   switch (error.kind) {
+    case "no-matches":
+      return {
+        title: "No Matches",
+        message: `No medicines matched "${searchTerm}". Check the spelling and try again.`,
+        isNoMatches: true,
+      };
     case "transport":
       return {
         title: "Search unavailable",
@@ -68,7 +75,7 @@ export default async function Home(props: HomeProps) {
     try {
       result = await searchProducts(term);
     } catch (error) {
-      errorState = searchErrorState(error);
+      errorState = searchErrorState(error, term);
     }
   }
 
@@ -127,7 +134,10 @@ export default async function Home(props: HomeProps) {
         )}
 
         {errorState && (
-          <div className="message-card message-card-error" role="alert">
+          <div
+            className={`message-card${errorState.isNoMatches ? "" : " message-card-error"}`}
+            {...(errorState.isNoMatches ? {} : { role: "alert" })}
+          >
             <p className="card-kicker">{errorState.title}</p>
             <p>{errorState.message}</p>
           </div>
