@@ -142,6 +142,28 @@ describe("searchProducts", () => {
     ).rejects.toMatchObject({ kind: "timeout" });
   });
 
+  it("aborts while an openFDA response body is still being read", async () => {
+    const fetcher = async (
+      _input: RequestInfo | URL,
+      init?: RequestInit,
+    ): Promise<Response> => ({
+      ok: true,
+      status: 200,
+      json: () =>
+        new Promise((_, reject) => {
+          init?.signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("The operation timed out", "TimeoutError")),
+            { once: true },
+          );
+        }),
+    } as Response);
+
+    await expect(
+      searchProducts("Crocin MAX", { fetcher, timeoutMs: 1 }),
+    ).rejects.toMatchObject({ kind: "timeout" });
+  });
+
   it("classifies API rejection and malformed responses separately", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("rejected", { status: 503 }),

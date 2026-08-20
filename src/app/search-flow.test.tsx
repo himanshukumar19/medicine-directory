@@ -54,7 +54,7 @@ describe("search and open a Product", () => {
     expect(homeMarkup).toContain('name="term"');
     expect(homeMarkup).toContain("Crocin MAX");
     expect(productHref).toBe(`/products/${productSetId}`);
-    expect(homeMarkup).toContain("1 Product");
+    expect(homeMarkup).toContain("1 unique Product");
 
     const detail = await ProductPage({
       params: Promise.resolve({ setId: productHref?.split("/").pop() ?? "" }),
@@ -100,7 +100,7 @@ describe("search and open a Product", () => {
 
     expect(markup).toContain("Crocin MAX");
     expect(markup).toContain("Crocin Alternative");
-    expect(markup).toContain("Showing 2 of 25 Products");
+    expect(markup).toContain("Showing 2 unique Products from 25 Result Set entries");
     expect(markup).toContain("Partial Result Window");
     expect(markup).toContain("Window limit 2 | offset 0");
     expect(markup.match(/class="product-link"/g)).toHaveLength(2);

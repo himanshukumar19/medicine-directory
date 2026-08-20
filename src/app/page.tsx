@@ -138,7 +138,9 @@ export default async function Home(props: HomeProps) {
                 </h2>
               </div>
               <p className="result-provenance">
-                Showing {result.products.length} of {result.total} Products
+                Showing {result.products.length} unique Product
+                {result.products.length === 1 ? "" : "s"} from {result.total}{" "}
+                Result Set entries
                 <br />
                 Window limit {result.limit} | offset {result.skip}
                 {isPartialResultWindow(result) && (

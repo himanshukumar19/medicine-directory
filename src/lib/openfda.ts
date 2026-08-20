@@ -153,14 +153,31 @@ async function fetchResultWindow(
 
   let response: Response;
   const timeoutController = new AbortController();
-  const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const timeoutError = new DOMException(
+        "The openFDA request timed out.",
+        "TimeoutError",
+      );
+      timeoutController.abort(timeoutError);
+      reject(timeoutError);
+    }, timeoutMs);
+  });
 
   try {
-    response = await fetcher(requestUrl.toString(), {
-      cache: "no-store",
-      signal: timeoutController.signal,
-    });
+    response = await Promise.race([
+      fetcher(requestUrl.toString(), {
+        cache: "no-store",
+        signal: timeoutController.signal,
+      }),
+      timeoutPromise,
+    ]);
   } catch (error) {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+
     if (timeoutController.signal.aborted || isTimeoutError(error)) {
       throw new OpenFdaError(
         "timeout",
@@ -172,11 +189,12 @@ async function fetchResultWindow(
       "transport",
       error instanceof Error ? error.message : "The openFDA request failed.",
     );
-  } finally {
-    clearTimeout(timeoutId);
   }
 
   if (!response.ok) {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
     throw new OpenFdaError(
       "api-rejection",
       `openFDA rejected the request with status ${response.status}.`,
@@ -186,12 +204,23 @@ async function fetchResultWindow(
   let payload: unknown;
 
   try {
-    payload = await response.json();
-  } catch {
+    payload = await Promise.race([response.json(), timeoutPromise]);
+  } catch (error) {
+    if (timeoutController.signal.aborted || isTimeoutError(error)) {
+      throw new OpenFdaError(
+        "timeout",
+        "The openFDA request timed out.",
+      );
+    }
+
     throw new OpenFdaError(
       "malformed-response",
       "openFDA returned invalid JSON.",
     );
+  } finally {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
   }
 
   return parseResultWindow(payload, includeLabel);
